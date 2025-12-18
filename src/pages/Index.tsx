@@ -42,6 +42,7 @@ const Index = () => {
 
     try {
       const results = await analyzeImage(url, (status) => {
+        console.log('Analysis status:', status);
         setLoadingStatus(status);
       });
 
@@ -57,7 +58,7 @@ const Index = () => {
       console.error('Analysis failed:', error);
       toast({
         title: "Analysis Failed",
-        description: "Could not analyze the image. Please try again.",
+        description: error instanceof Error ? error.message : "Could not analyze the image. Please try again.",
         variant: "destructive",
       });
     } finally {

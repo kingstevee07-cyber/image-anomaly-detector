@@ -33,48 +33,43 @@ export const loadModels = async (
 ): Promise<void> => {
   try {
     if (!classifierPipeline) {
-      onProgress?.('Loading classification model...');
+      onProgress?.('Downloading classification model (this may take a minute on first load)...');
       classifierPipeline = await pipeline(
         'image-classification',
         'Xenova/vit-base-patch16-224',
-        { device: 'webgpu' }
+        { 
+          progress_callback: (progress: any) => {
+            if (progress.status === 'downloading') {
+              const percent = progress.progress ? Math.round(progress.progress) : 0;
+              onProgress?.(`Downloading classifier: ${percent}%`);
+            }
+          }
+        }
       );
+      onProgress?.('Classification model loaded!');
     }
 
     if (!segmenterPipeline) {
-      onProgress?.('Loading segmentation model...');
+      onProgress?.('Downloading segmentation model...');
       segmenterPipeline = await pipeline(
         'image-segmentation',
         'Xenova/segformer-b0-finetuned-ade-512-512',
-        { device: 'webgpu' }
+        {
+          progress_callback: (progress: any) => {
+            if (progress.status === 'downloading') {
+              const percent = progress.progress ? Math.round(progress.progress) : 0;
+              onProgress?.(`Downloading segmenter: ${percent}%`);
+            }
+          }
+        }
       );
+      onProgress?.('Segmentation model loaded!');
     }
 
-    onProgress?.('Models loaded successfully');
+    onProgress?.('All models ready!');
   } catch (error) {
     console.error('Error loading models:', error);
-    // Fallback to CPU if WebGPU is not available
-    try {
-      if (!classifierPipeline) {
-        onProgress?.('Loading classification model (CPU fallback)...');
-        classifierPipeline = await pipeline(
-          'image-classification',
-          'Xenova/vit-base-patch16-224'
-        );
-      }
-
-      if (!segmenterPipeline) {
-        onProgress?.('Loading segmentation model (CPU fallback)...');
-        segmenterPipeline = await pipeline(
-          'image-segmentation',
-          'Xenova/segformer-b0-finetuned-ade-512-512'
-        );
-      }
-      onProgress?.('Models loaded successfully (CPU mode)');
-    } catch (fallbackError) {
-      console.error('Fallback loading failed:', fallbackError);
-      throw fallbackError;
-    }
+    throw new Error('Failed to load AI models. Please refresh and try again.');
   }
 };
 

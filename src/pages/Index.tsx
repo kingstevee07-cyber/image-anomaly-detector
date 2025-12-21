@@ -1,58 +1,46 @@
 import React, { useState, useCallback } from 'react';
-import { Scan, Layers, BarChart3, Eye, EyeOff, Zap } from 'lucide-react';
+import { Scan, Layers, BarChart3, Eye, EyeOff, Zap, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ImageUploader } from '@/components/ImageUploader';
-import { AnalysisResults } from '@/components/AnalysisResults';
-import { SegmentationOverlay } from '@/components/SegmentationOverlay';
-import { analyzeImage } from '@/lib/anomalyDetection';
+import AnomalyResults from '@/components/AnomalyResults';
+import AnomalyHeatmap from '@/components/AnomalyHeatmap';
+import { analyzeImageForAnomalies, AnomalyAnalysisResult } from '@/lib/anomalyApi';
 import { useToast } from '@/hooks/use-toast';
-
-interface ClassificationResult {
-  label: string;
-  score: number;
-}
-
-interface SegmentationResult {
-  label: string;
-  score: number;
-  mask?: {
-    width: number;
-    height: number;
-    data: number[];
-  };
-}
 
 const Index = () => {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState<string>('');
-  const [classifications, setClassifications] = useState<ClassificationResult[]>([]);
-  const [segmentations, setSegmentations] = useState<SegmentationResult[]>([]);
-  const [anomalyScore, setAnomalyScore] = useState<number | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<AnomalyAnalysisResult | null>(null);
   const [showOverlay, setShowOverlay] = useState(true);
   const { toast } = useToast();
 
   const handleImageSelect = useCallback(async (file: File, url: string) => {
     setImageUrl(url);
+    setImageFile(file);
     setIsProcessing(true);
-    setClassifications([]);
-    setSegmentations([]);
-    setAnomalyScore(null);
+    setAnalysisResult(null);
     setLoadingStatus('Initializing...');
 
     try {
-      const results = await analyzeImage(url, (status) => {
+      const result = await analyzeImageForAnomalies(file, (status) => {
         console.log('Analysis status:', status);
         setLoadingStatus(status);
       });
 
-      setClassifications(results.classifications);
-      setSegmentations(results.segmentations);
-      setAnomalyScore(results.anomalyScore);
+      setAnalysisResult(result);
+
+      const statusMessage = result.status === 'normal' 
+        ? 'No anomalies detected' 
+        : result.status === 'warning'
+        ? 'Minor anomalies found'
+        : 'Anomalies detected!';
 
       toast({
         title: "Analysis Complete",
-        description: `Detected ${results.classifications.length} classifications and ${results.segmentations.length} segments.`,
+        description: `${statusMessage} • Score: ${(result.anomaly_score * 100).toFixed(1)}%`,
+        variant: result.status === 'anomaly_detected' ? 'destructive' : 'default',
       });
     } catch (error) {
       console.error('Analysis failed:', error);
@@ -78,23 +66,23 @@ const Index = () => {
                 <Scan className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h1 className="text-xl font-bold gradient-text">AnomaLib</h1>
+                <h1 className="text-xl font-bold gradient-text">Anomalib</h1>
                 <p className="text-xs text-muted-foreground">AI-Powered Anomaly Detection</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <div className="hidden sm:flex items-center gap-4 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
-                  <Layers className="h-4 w-4 text-primary" />
-                  Segmentation
+                  <AlertTriangle className="h-4 w-4 text-primary" />
+                  Defect Detection
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <BarChart3 className="h-4 w-4 text-primary" />
-                  Classification
+                  <Layers className="h-4 w-4 text-primary" />
+                  Localization
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Zap className="h-4 w-4 text-primary" />
-                  WebGPU
+                  AI-Powered
                 </span>
               </div>
             </div>
@@ -112,8 +100,8 @@ const Index = () => {
                 Detect Anomalies in <span className="gradient-text">Your Images</span>
               </h2>
               <p className="text-muted-foreground max-w-2xl mx-auto">
-                Upload an image to analyze it using AI-powered segmentation and classification.
-                Our system identifies anomalies and provides detailed insights.
+                Upload an image to analyze it using AI-powered anomaly detection.
+                Our system identifies defects, irregularities, and provides detailed localization.
               </p>
             </div>
           )}
@@ -127,7 +115,7 @@ const Index = () => {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold">Image Analysis</h3>
-                    {segmentations.length > 0 && (
+                    {analysisResult && analysisResult.anomaly_regions.length > 0 && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -136,26 +124,26 @@ const Index = () => {
                         {showOverlay ? (
                           <>
                             <EyeOff className="h-4 w-4 mr-2" />
-                            Hide Overlay
+                            Hide Heatmap
                           </>
                         ) : (
                           <>
                             <Eye className="h-4 w-4 mr-2" />
-                            Show Overlay
+                            Show Heatmap
                           </>
                         )}
                       </Button>
                     )}
                   </div>
                   <div className="glass rounded-xl p-4">
-                    <SegmentationOverlay
+                    <AnomalyHeatmap
                       imageUrl={imageUrl}
-                      segmentations={segmentations}
-                      showOverlay={showOverlay && !isProcessing}
+                      regions={analysisResult?.anomaly_regions || []}
+                      showOverlay={showOverlay && !isProcessing && !!analysisResult}
                     />
                     {isProcessing && (
                       <div className="mt-3 text-center">
-                        <p className="text-sm text-primary font-mono">{loadingStatus}</p>
+                        <p className="text-sm text-primary font-mono animate-pulse">{loadingStatus}</p>
                       </div>
                     )}
                   </div>
@@ -164,9 +152,8 @@ const Index = () => {
                     className="w-full"
                     onClick={() => {
                       setImageUrl(null);
-                      setClassifications([]);
-                      setSegmentations([]);
-                      setAnomalyScore(null);
+                      setImageFile(null);
+                      setAnalysisResult(null);
                     }}
                   >
                     Analyze Another Image
@@ -178,11 +165,10 @@ const Index = () => {
             {/* Right Column - Results */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Analysis Results</h3>
-              <AnalysisResults
+              <AnomalyResults
+                result={analysisResult}
                 isLoading={isProcessing}
-                classifications={classifications}
-                segmentations={segmentations}
-                anomalyScore={anomalyScore}
+                loadingStatus={loadingStatus}
               />
             </div>
           </div>
@@ -191,19 +177,19 @@ const Index = () => {
           <div className="mt-12 grid md:grid-cols-3 gap-6">
             {[
               {
-                icon: Scan,
+                icon: AlertTriangle,
                 title: "Anomaly Detection",
-                description: "Identifies unusual patterns and outliers in your images using deep learning models.",
+                description: "Identifies defects, scratches, dents, and irregularities using advanced AI vision models.",
               },
               {
                 icon: Layers,
-                title: "Image Segmentation",
-                description: "Breaks down images into meaningful segments for detailed analysis.",
+                title: "Anomaly Localization",
+                description: "Pinpoints exact regions with anomalies, showing heatmaps and bounding boxes.",
               },
               {
                 icon: BarChart3,
-                title: "Classification",
-                description: "Categorizes image content with confidence scores for each prediction.",
+                title: "Confidence Scoring",
+                description: "Provides anomaly scores and severity levels for quality control decisions.",
               },
             ].map((feature, index) => (
               <div
@@ -226,7 +212,7 @@ const Index = () => {
       <footer className="border-t border-border mt-16">
         <div className="container mx-auto px-4 py-6">
           <p className="text-center text-sm text-muted-foreground">
-            Powered by Hugging Face Transformers.js • Running locally in your browser
+            Powered by Lovable AI • Industrial-grade anomaly detection
           </p>
         </div>
       </footer>

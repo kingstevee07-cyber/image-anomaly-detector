@@ -3,25 +3,43 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, Trash2, FolderOpen, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Upload, Trash2, FolderOpen, Image as ImageIcon, Loader2, Download, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   ReferenceImage,
   uploadReferenceImage,
   getReferenceImages,
   deleteReferenceImage,
-  getPublicUrl
+  getPublicUrl,
+  importSampleDataset
 } from '@/lib/referenceDataset';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ReferenceDatasetManagerProps {
   onDatasetChange?: () => void;
 }
 
+// Sample datasets available for import
+const SAMPLE_DATASETS = [
+  { id: 'bottles', name: 'Bottles (Normal)', description: '10 sample bottle images' },
+  { id: 'textures', name: 'Textures (Normal)', description: '10 sample texture images' },
+  { id: 'electronics', name: 'Electronics (Normal)', description: '10 sample PCB/electronic images' },
+  { id: 'fabric', name: 'Fabric (Normal)', description: '10 sample fabric texture images' },
+];
+
 export function ReferenceDatasetManager({ onDatasetChange }: ReferenceDatasetManagerProps) {
   const [images, setImages] = useState<ReferenceImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [category, setCategory] = useState('default');
+  const [selectedDataset, setSelectedDataset] = useState<string>('');
 
   useEffect(() => {
     loadImages();
@@ -83,6 +101,27 @@ export function ReferenceDatasetManager({ onDatasetChange }: ReferenceDatasetMan
     }
   };
 
+  const handleImportDataset = async () => {
+    if (!selectedDataset) {
+      toast.error('Please select a dataset to import');
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const count = await importSampleDataset(selectedDataset);
+      toast.success(`Imported ${count} sample images to "${selectedDataset}" category`);
+      await loadImages();
+      onDatasetChange?.();
+      setSelectedDataset('');
+    } catch (error) {
+      console.error('Import failed:', error);
+      toast.error('Failed to import sample dataset');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const categories = [...new Set(images.map(img => img.category))];
 
   return (
@@ -134,6 +173,46 @@ export function ReferenceDatasetManager({ onDatasetChange }: ReferenceDatasetMan
         <p className="text-sm text-muted-foreground">
           Upload images that represent "normal" samples. New images will be compared against these to detect anomalies.
         </p>
+
+        {/* Sample Dataset Import */}
+        <div className="p-4 rounded-lg border border-dashed border-primary/30 bg-primary/5">
+          <div className="flex items-center gap-2 mb-3">
+            <Package className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium">Quick Start: Import Sample Dataset</span>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Select value={selectedDataset} onValueChange={setSelectedDataset}>
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="Select a sample dataset..." />
+              </SelectTrigger>
+              <SelectContent>
+                {SAMPLE_DATASETS.map((dataset) => (
+                  <SelectItem key={dataset.id} value={dataset.id}>
+                    <div className="flex flex-col">
+                      <span>{dataset.name}</span>
+                      <span className="text-xs text-muted-foreground">{dataset.description}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              onClick={handleImportDataset}
+              disabled={importing || !selectedDataset}
+              variant="secondary"
+            >
+              {importing ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              Import Dataset
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Import pre-curated "normal" images to quickly build your reference dataset.
+          </p>
+        </div>
 
         {loading ? (
           <div className="flex justify-center py-8">

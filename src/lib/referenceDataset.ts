@@ -357,3 +357,85 @@ export function getPublicUrl(filePath: string): string {
     .getPublicUrl(filePath);
   return data.publicUrl;
 }
+
+// Sample datasets with publicly available images (using Picsum for demo)
+const SAMPLE_IMAGES: Record<string, string[]> = {
+  bottles: [
+    'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1523362628745-0c100150b504?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1605971658793-4c0a8b43c7bd?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1614885070636-e8ab1bcefdb6?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1610885451561-e04b24e74e56?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1567103472667-6898f3a79cf2?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1544145945-f90425340c7e?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1587017539504-67cfbddac569?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1550505453-77b7d24e1fd6?w=300&h=300&fit=crop',
+  ],
+  textures: [
+    'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1553356084-58ef4a67b2a7?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1557672172-298e090bd0f1?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1528459801416-a9e53bbf4e17?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1516541196182-6bdb0516ed27?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1517999144091-3d9dca6d1e43?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1533035353720-f1c6a75cd8ab?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1557682224-5b8590cd9ec5?w=300&h=300&fit=crop',
+  ],
+  electronics: [
+    'https://images.unsplash.com/photo-1518770660439-4636190af475?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1562408590-e32931084e23?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1555664424-778a1e5e1b48?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1563770660941-20978e870e26?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1580894894513-541e068a3e2b?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1555617117-08d64f82dba5?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1588508065123-287b28e013da?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1601737487795-dab272f52420?w=300&h=300&fit=crop',
+  ],
+  fabric: [
+    'https://images.unsplash.com/photo-1528459105426-b9548367069b?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1558171013-50e1d1e8f4c4?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1620799139834-6b8f844fbe61?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1558618047-f4b511ce7f7b?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1588854337221-4cf9fa96059c?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1572201851925-62e1e79f6b1f?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1558171274-cb9d967461c4?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1626193187528-a84d13f45cb3?w=300&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1544816565-c36d8f161f69?w=300&h=300&fit=crop',
+  ],
+};
+
+async function urlToFile(url: string, filename: string): Promise<File> {
+  const response = await fetch(url);
+  const blob = await response.blob();
+  return new File([blob], filename, { type: blob.type || 'image/jpeg' });
+}
+
+export async function importSampleDataset(datasetId: string): Promise<number> {
+  const urls = SAMPLE_IMAGES[datasetId];
+  if (!urls) {
+    throw new Error(`Unknown dataset: ${datasetId}`);
+  }
+
+  let successCount = 0;
+
+  for (let i = 0; i < urls.length; i++) {
+    try {
+      const url = urls[i];
+      const filename = `${datasetId}_sample_${i + 1}.jpg`;
+      const file = await urlToFile(url, filename);
+      await uploadReferenceImage(file, datasetId);
+      successCount++;
+    } catch (error) {
+      console.error(`Failed to import image ${i + 1}:`, error);
+      // Continue with other images
+    }
+  }
+
+  return successCount;
+}

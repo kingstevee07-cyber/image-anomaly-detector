@@ -327,19 +327,19 @@ const Index = () => {
           <div className="mt-12 grid md:grid-cols-3 gap-6">
             {[
               {
-                icon: Database,
-                title: "Reference-Based",
-                description: "Build a dataset of normal samples. No external APIs needed - all processing happens locally.",
+                icon: Brain,
+                title: "AI-Powered",
+                description: "Use Lovable AI to analyze images and predict anomalies, defects, and irregularities with high accuracy.",
               },
               {
-                icon: Layers,
-                title: "Feature Extraction",
-                description: "Extracts color histograms and texture features to compare images against your reference dataset.",
+                icon: Database,
+                title: "Reference-Based",
+                description: "Build a dataset of normal samples and compare new images against them for anomaly detection.",
               },
               {
                 icon: BarChart3,
-                title: "Similarity Scoring",
-                description: "Calculates similarity scores and highlights regions that deviate from normal patterns.",
+                title: "Detailed Reports",
+                description: "Get anomaly scores, severity levels, defect classifications, and region-level heatmap overlays.",
               },
             ].map((feature, index) => (
               <div

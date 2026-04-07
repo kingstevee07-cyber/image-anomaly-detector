@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Scan, Layers, BarChart3, Eye, EyeOff, Zap, AlertTriangle, Database } from 'lucide-react';
+import { Scan, Layers, BarChart3, Eye, EyeOff, Zap, AlertTriangle, Database, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ImageUploader } from '@/components/ImageUploader';
 import AnomalyHeatmap from '@/components/AnomalyHeatmap';
+import AnomalyResults from '@/components/AnomalyResults';
 import { ReferenceDatasetManager } from '@/components/ReferenceDatasetManager';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -12,7 +13,7 @@ import {
   analyzeWithReferenceDataset,
   AnomalyResult
 } from '@/lib/referenceDataset';
-import { AnomalyRegion } from '@/lib/anomalyApi';
+import { AnomalyRegion, AnomalyAnalysisResult, analyzeImageForAnomalies } from '@/lib/anomalyApi';
 import DatasetAnalysisResults from '@/components/DatasetAnalysisResults';
 
 const Index = () => {
@@ -20,9 +21,12 @@ const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState<string>('');
   const [analysisResult, setAnalysisResult] = useState<AnomalyResult | null>(null);
+  const [aiResult, setAiResult] = useState<AnomalyAnalysisResult | null>(null);
+  const [analysisMode, setAnalysisMode] = useState<'dataset' | 'ai'>('ai');
   const [showOverlay, setShowOverlay] = useState(true);
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
   const [activeTab, setActiveTab] = useState('analyze');
+  const [currentFile, setCurrentFile] = useState<File | null>(null);
   const { toast } = useToast();
 
   const loadReferenceImages = useCallback(async () => {
@@ -39,63 +43,87 @@ const Index = () => {
   }, [loadReferenceImages]);
 
   const handleImageSelect = useCallback(async (file: File, url: string) => {
-    if (referenceImages.length === 0) {
-      toast({
-        title: "No Reference Dataset",
-        description: "Please upload reference images first in the 'Reference Dataset' tab.",
-        variant: "destructive",
-      });
-      setActiveTab('dataset');
-      return;
-    }
-
     setImageUrl(url);
+    setCurrentFile(file);
     setIsProcessing(true);
     setAnalysisResult(null);
+    setAiResult(null);
     setLoadingStatus('Initializing...');
 
     try {
-      const result = await analyzeWithReferenceDataset(url, referenceImages, (status) => {
-        console.log('Analysis status:', status);
-        setLoadingStatus(status);
-      });
+      if (analysisMode === 'ai') {
+        // AI-powered analysis using Gemini
+        const result = await analyzeImageForAnomalies(file, (status) => {
+          setLoadingStatus(status);
+        });
+        setAiResult(result);
 
-      setAnalysisResult(result);
+        const statusMessage = result.status === 'normal' 
+          ? 'No anomalies detected' 
+          : result.status === 'warning'
+          ? 'Minor anomalies found'
+          : 'Anomalies detected!';
 
-      const statusMessage = result.status === 'normal' 
-        ? 'No anomalies detected' 
-        : result.status === 'warning'
-        ? 'Minor anomalies found'
-        : 'Anomalies detected!';
+        toast({
+          title: "AI Analysis Complete",
+          description: `${statusMessage} • Score: ${(result.anomaly_score * 100).toFixed(1)}%`,
+          variant: result.status === 'anomaly_detected' ? 'destructive' : 'default',
+        });
+      } else {
+        // Reference dataset analysis
+        if (referenceImages.length === 0) {
+          toast({
+            title: "No Reference Dataset",
+            description: "Please upload reference images first in the 'Reference Dataset' tab.",
+            variant: "destructive",
+          });
+          setActiveTab('dataset');
+          setIsProcessing(false);
+          return;
+        }
 
-      toast({
-        title: "Analysis Complete",
-        description: `${statusMessage} • Score: ${(result.anomalyScore * 100).toFixed(1)}%`,
-        variant: result.status === 'anomaly_detected' ? 'destructive' : 'default',
-      });
+        const result = await analyzeWithReferenceDataset(url, referenceImages, (status) => {
+          setLoadingStatus(status);
+        });
+        setAnalysisResult(result);
+
+        const statusMessage = result.status === 'normal' 
+          ? 'No anomalies detected' 
+          : result.status === 'warning'
+          ? 'Minor anomalies found'
+          : 'Anomalies detected!';
+
+        toast({
+          title: "Dataset Analysis Complete",
+          description: `${statusMessage} • Score: ${(result.anomalyScore * 100).toFixed(1)}%`,
+          variant: result.status === 'anomaly_detected' ? 'destructive' : 'default',
+        });
+      }
     } catch (error) {
       console.error('Analysis failed:', error);
       toast({
         title: "Analysis Failed",
-        description: error instanceof Error ? error.message : "Could not analyze the image. Please try again.",
+        description: error instanceof Error ? error.message : "Could not analyze the image.",
         variant: "destructive",
       });
     } finally {
       setIsProcessing(false);
       setLoadingStatus('');
     }
-  }, [toast, referenceImages]);
+  }, [toast, referenceImages, analysisMode]);
 
-  // Convert AnomalyResult regions to AnomalyRegion format
-  const heatmapRegions: AnomalyRegion[] = analysisResult?.anomalyRegions.map(r => ({
-    label: `Anomaly (${(r.score * 100).toFixed(0)}%)`,
-    x: r.x,
-    y: r.y,
-    width: r.width,
-    height: r.height,
-    severity: r.severity,
-    score: r.score
-  })) || [];
+  // Get regions from whichever analysis mode was used
+  const heatmapRegions: AnomalyRegion[] = analysisMode === 'ai' 
+    ? (aiResult?.anomaly_regions || [])
+    : (analysisResult?.anomalyRegions.map(r => ({
+        label: `Anomaly (${(r.score * 100).toFixed(0)}%)`,
+        x: r.x,
+        y: r.y,
+        width: r.width,
+        height: r.height,
+        severity: r.severity,
+        score: r.score
+      })) || []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -165,19 +193,39 @@ const Index = () => {
             </TabsContent>
 
             <TabsContent value="analyze" className="animate-fade-in">
-              {/* Hero Section */}
+              {/* Mode Selector */}
               {!imageUrl && (
                 <div className="text-center mb-8">
                   <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                    Detect Anomalies Using <span className="gradient-text">Your Dataset</span>
+                    Detect Anomalies with <span className="gradient-text">AI & Dataset</span>
                   </h2>
-                  <p className="text-muted-foreground max-w-2xl mx-auto">
-                    Upload an image to compare it against your reference dataset.
-                    Our system calculates similarity scores and identifies deviations from normal patterns.
+                  <p className="text-muted-foreground max-w-2xl mx-auto mb-6">
+                    Choose your analysis method: AI-powered prediction using Gemini or comparison against your reference dataset.
                   </p>
-                  {referenceImages.length === 0 && (
-                    <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg max-w-md mx-auto">
-                      <p className="text-sm text-yellow-600 dark:text-yellow-400">
+
+                  {/* Analysis Mode Toggle */}
+                  <div className="flex items-center justify-center gap-3 mb-6">
+                    <Button
+                      variant={analysisMode === 'ai' ? 'default' : 'outline'}
+                      onClick={() => setAnalysisMode('ai')}
+                      className="flex items-center gap-2"
+                    >
+                      <Brain className="h-4 w-4" />
+                      AI Prediction
+                    </Button>
+                    <Button
+                      variant={analysisMode === 'dataset' ? 'default' : 'outline'}
+                      onClick={() => setAnalysisMode('dataset')}
+                      className="flex items-center gap-2"
+                    >
+                      <Database className="h-4 w-4" />
+                      Reference Dataset
+                    </Button>
+                  </div>
+
+                  {analysisMode === 'dataset' && referenceImages.length === 0 && (
+                    <div className="mt-4 p-4 bg-destructive/10 border border-destructive/30 rounded-lg max-w-md mx-auto">
+                      <p className="text-sm text-destructive">
                         ⚠️ No reference images uploaded. Please add reference images first.
                       </p>
                       <Button 
@@ -201,8 +249,11 @@ const Index = () => {
                   ) : (
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">Image Analysis</h3>
-                        {analysisResult && analysisResult.anomalyRegions.length > 0 && (
+                        <h3 className="text-lg font-semibold flex items-center gap-2">
+                          {analysisMode === 'ai' ? <Brain className="h-5 w-5 text-primary" /> : <Database className="h-5 w-5 text-primary" />}
+                          {analysisMode === 'ai' ? 'AI Analysis' : 'Dataset Analysis'}
+                        </h3>
+                        {heatmapRegions.length > 0 && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -226,7 +277,7 @@ const Index = () => {
                         <AnomalyHeatmap
                           imageUrl={imageUrl}
                           regions={heatmapRegions}
-                          showOverlay={showOverlay && !isProcessing && !!analysisResult}
+                          showOverlay={showOverlay && !isProcessing && (!!analysisResult || !!aiResult)}
                         />
                         {isProcessing && (
                           <div className="mt-3 text-center">
@@ -240,6 +291,8 @@ const Index = () => {
                         onClick={() => {
                           setImageUrl(null);
                           setAnalysisResult(null);
+                          setAiResult(null);
+                          setCurrentFile(null);
                         }}
                       >
                         Analyze Another Image
@@ -251,12 +304,20 @@ const Index = () => {
                 {/* Right Column - Results */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Analysis Results</h3>
-                  <DatasetAnalysisResults
-                    result={analysisResult}
-                    isLoading={isProcessing}
-                    loadingStatus={loadingStatus}
-                    referenceCount={referenceImages.length}
-                  />
+                  {analysisMode === 'ai' ? (
+                    <AnomalyResults
+                      result={aiResult}
+                      isLoading={isProcessing}
+                      loadingStatus={loadingStatus}
+                    />
+                  ) : (
+                    <DatasetAnalysisResults
+                      result={analysisResult}
+                      isLoading={isProcessing}
+                      loadingStatus={loadingStatus}
+                      referenceCount={referenceImages.length}
+                    />
+                  )}
                 </div>
               </div>
             </TabsContent>
@@ -266,19 +327,19 @@ const Index = () => {
           <div className="mt-12 grid md:grid-cols-3 gap-6">
             {[
               {
-                icon: Database,
-                title: "Reference-Based",
-                description: "Build a dataset of normal samples. No external APIs needed - all processing happens locally.",
+                icon: Brain,
+                title: "AI-Powered",
+                description: "Use Lovable AI to analyze images and predict anomalies, defects, and irregularities with high accuracy.",
               },
               {
-                icon: Layers,
-                title: "Feature Extraction",
-                description: "Extracts color histograms and texture features to compare images against your reference dataset.",
+                icon: Database,
+                title: "Reference-Based",
+                description: "Build a dataset of normal samples and compare new images against them for anomaly detection.",
               },
               {
                 icon: BarChart3,
-                title: "Similarity Scoring",
-                description: "Calculates similarity scores and highlights regions that deviate from normal patterns.",
+                title: "Detailed Reports",
+                description: "Get anomaly scores, severity levels, defect classifications, and region-level heatmap overlays.",
               },
             ].map((feature, index) => (
               <div
@@ -301,7 +362,7 @@ const Index = () => {
       <footer className="border-t border-border mt-16">
         <div className="container mx-auto px-4 py-6">
           <p className="text-center text-sm text-muted-foreground">
-            Reference-based anomaly detection • No external APIs required
+            AI-powered & reference-based anomaly detection • Powered by Lovable AI
           </p>
         </div>
       </footer>

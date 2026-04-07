@@ -1,6 +1,6 @@
- Movable – AI-Powered Visual Intelligence Platform
+ AI-Powered Visual Intelligence Platform
 
-**Movable** is an AI-powered visual anomaly detection platform designed to automatically identify and localize defects in images.
+Anamaly Detecton is an AI-powered visual anomaly detection platform designed to automatically identify and localize defects in images.
 The system focuses exclusively on **anomaly detection**, learning normal visual patterns and highlighting deviations without requiring extensive defect labels.
 
 This project is **individually developed** and conceptually inspired by modern anomaly detection frameworks such as **anomalib**, with an independent implementation and customized visualization workflow.

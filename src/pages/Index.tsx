@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Scan, Layers, BarChart3, Eye, EyeOff, Zap, AlertTriangle, Database } from 'lucide-react';
+import { Scan, Layers, BarChart3, Eye, EyeOff, Zap, AlertTriangle, Database, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ImageUploader } from '@/components/ImageUploader';
 import AnomalyHeatmap from '@/components/AnomalyHeatmap';
+import AnomalyResults from '@/components/AnomalyResults';
 import { ReferenceDatasetManager } from '@/components/ReferenceDatasetManager';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -12,7 +13,7 @@ import {
   analyzeWithReferenceDataset,
   AnomalyResult
 } from '@/lib/referenceDataset';
-import { AnomalyRegion } from '@/lib/anomalyApi';
+import { AnomalyRegion, AnomalyAnalysisResult, analyzeImageForAnomalies } from '@/lib/anomalyApi';
 import DatasetAnalysisResults from '@/components/DatasetAnalysisResults';
 
 const Index = () => {

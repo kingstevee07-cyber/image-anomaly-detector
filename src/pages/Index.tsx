@@ -193,19 +193,39 @@ const Index = () => {
             </TabsContent>
 
             <TabsContent value="analyze" className="animate-fade-in">
-              {/* Hero Section */}
+              {/* Mode Selector */}
               {!imageUrl && (
                 <div className="text-center mb-8">
                   <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                    Detect Anomalies Using <span className="gradient-text">Your Dataset</span>
+                    Detect Anomalies with <span className="gradient-text">AI & Dataset</span>
                   </h2>
-                  <p className="text-muted-foreground max-w-2xl mx-auto">
-                    Upload an image to compare it against your reference dataset.
-                    Our system calculates similarity scores and identifies deviations from normal patterns.
+                  <p className="text-muted-foreground max-w-2xl mx-auto mb-6">
+                    Choose your analysis method: AI-powered prediction using Gemini or comparison against your reference dataset.
                   </p>
-                  {referenceImages.length === 0 && (
-                    <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg max-w-md mx-auto">
-                      <p className="text-sm text-yellow-600 dark:text-yellow-400">
+
+                  {/* Analysis Mode Toggle */}
+                  <div className="flex items-center justify-center gap-3 mb-6">
+                    <Button
+                      variant={analysisMode === 'ai' ? 'default' : 'outline'}
+                      onClick={() => setAnalysisMode('ai')}
+                      className="flex items-center gap-2"
+                    >
+                      <Brain className="h-4 w-4" />
+                      AI Prediction
+                    </Button>
+                    <Button
+                      variant={analysisMode === 'dataset' ? 'default' : 'outline'}
+                      onClick={() => setAnalysisMode('dataset')}
+                      className="flex items-center gap-2"
+                    >
+                      <Database className="h-4 w-4" />
+                      Reference Dataset
+                    </Button>
+                  </div>
+
+                  {analysisMode === 'dataset' && referenceImages.length === 0 && (
+                    <div className="mt-4 p-4 bg-destructive/10 border border-destructive/30 rounded-lg max-w-md mx-auto">
+                      <p className="text-sm text-destructive">
                         ⚠️ No reference images uploaded. Please add reference images first.
                       </p>
                       <Button 
@@ -229,8 +249,11 @@ const Index = () => {
                   ) : (
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">Image Analysis</h3>
-                        {analysisResult && analysisResult.anomalyRegions.length > 0 && (
+                        <h3 className="text-lg font-semibold flex items-center gap-2">
+                          {analysisMode === 'ai' ? <Brain className="h-5 w-5 text-primary" /> : <Database className="h-5 w-5 text-primary" />}
+                          {analysisMode === 'ai' ? 'AI Analysis' : 'Dataset Analysis'}
+                        </h3>
+                        {heatmapRegions.length > 0 && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -254,7 +277,7 @@ const Index = () => {
                         <AnomalyHeatmap
                           imageUrl={imageUrl}
                           regions={heatmapRegions}
-                          showOverlay={showOverlay && !isProcessing && !!analysisResult}
+                          showOverlay={showOverlay && !isProcessing && (!!analysisResult || !!aiResult)}
                         />
                         {isProcessing && (
                           <div className="mt-3 text-center">
@@ -268,6 +291,8 @@ const Index = () => {
                         onClick={() => {
                           setImageUrl(null);
                           setAnalysisResult(null);
+                          setAiResult(null);
+                          setCurrentFile(null);
                         }}
                       >
                         Analyze Another Image
@@ -279,10 +304,20 @@ const Index = () => {
                 {/* Right Column - Results */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Analysis Results</h3>
-                  <DatasetAnalysisResults
-                    result={analysisResult}
-                    isLoading={isProcessing}
-                    loadingStatus={loadingStatus}
+                  {analysisMode === 'ai' ? (
+                    <AnomalyResults
+                      result={aiResult}
+                      isLoading={isProcessing}
+                      loadingStatus={loadingStatus}
+                    />
+                  ) : (
+                    <DatasetAnalysisResults
+                      result={analysisResult}
+                      isLoading={isProcessing}
+                      loadingStatus={loadingStatus}
+                      referenceCount={referenceImages.length}
+                    />
+                  )}
                     referenceCount={referenceImages.length}
                   />
                 </div>

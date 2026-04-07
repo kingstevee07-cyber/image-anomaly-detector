@@ -43,52 +43,74 @@ const Index = () => {
   }, [loadReferenceImages]);
 
   const handleImageSelect = useCallback(async (file: File, url: string) => {
-    if (referenceImages.length === 0) {
-      toast({
-        title: "No Reference Dataset",
-        description: "Please upload reference images first in the 'Reference Dataset' tab.",
-        variant: "destructive",
-      });
-      setActiveTab('dataset');
-      return;
-    }
-
     setImageUrl(url);
+    setCurrentFile(file);
     setIsProcessing(true);
     setAnalysisResult(null);
+    setAiResult(null);
     setLoadingStatus('Initializing...');
 
     try {
-      const result = await analyzeWithReferenceDataset(url, referenceImages, (status) => {
-        console.log('Analysis status:', status);
-        setLoadingStatus(status);
-      });
+      if (analysisMode === 'ai') {
+        // AI-powered analysis using Gemini
+        const result = await analyzeImageForAnomalies(file, (status) => {
+          setLoadingStatus(status);
+        });
+        setAiResult(result);
 
-      setAnalysisResult(result);
+        const statusMessage = result.status === 'normal' 
+          ? 'No anomalies detected' 
+          : result.status === 'warning'
+          ? 'Minor anomalies found'
+          : 'Anomalies detected!';
 
-      const statusMessage = result.status === 'normal' 
-        ? 'No anomalies detected' 
-        : result.status === 'warning'
-        ? 'Minor anomalies found'
-        : 'Anomalies detected!';
+        toast({
+          title: "AI Analysis Complete",
+          description: `${statusMessage} • Score: ${(result.anomaly_score * 100).toFixed(1)}%`,
+          variant: result.status === 'anomaly_detected' ? 'destructive' : 'default',
+        });
+      } else {
+        // Reference dataset analysis
+        if (referenceImages.length === 0) {
+          toast({
+            title: "No Reference Dataset",
+            description: "Please upload reference images first in the 'Reference Dataset' tab.",
+            variant: "destructive",
+          });
+          setActiveTab('dataset');
+          setIsProcessing(false);
+          return;
+        }
 
-      toast({
-        title: "Analysis Complete",
-        description: `${statusMessage} • Score: ${(result.anomalyScore * 100).toFixed(1)}%`,
-        variant: result.status === 'anomaly_detected' ? 'destructive' : 'default',
-      });
+        const result = await analyzeWithReferenceDataset(url, referenceImages, (status) => {
+          setLoadingStatus(status);
+        });
+        setAnalysisResult(result);
+
+        const statusMessage = result.status === 'normal' 
+          ? 'No anomalies detected' 
+          : result.status === 'warning'
+          ? 'Minor anomalies found'
+          : 'Anomalies detected!';
+
+        toast({
+          title: "Dataset Analysis Complete",
+          description: `${statusMessage} • Score: ${(result.anomalyScore * 100).toFixed(1)}%`,
+          variant: result.status === 'anomaly_detected' ? 'destructive' : 'default',
+        });
+      }
     } catch (error) {
       console.error('Analysis failed:', error);
       toast({
         title: "Analysis Failed",
-        description: error instanceof Error ? error.message : "Could not analyze the image. Please try again.",
+        description: error instanceof Error ? error.message : "Could not analyze the image.",
         variant: "destructive",
       });
     } finally {
       setIsProcessing(false);
       setLoadingStatus('');
     }
-  }, [toast, referenceImages]);
+  }, [toast, referenceImages, analysisMode]);
 
   // Convert AnomalyResult regions to AnomalyRegion format
   const heatmapRegions: AnomalyRegion[] = analysisResult?.anomalyRegions.map(r => ({

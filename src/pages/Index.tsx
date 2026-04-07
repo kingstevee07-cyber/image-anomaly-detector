@@ -21,9 +21,12 @@ const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState<string>('');
   const [analysisResult, setAnalysisResult] = useState<AnomalyResult | null>(null);
+  const [aiResult, setAiResult] = useState<AnomalyAnalysisResult | null>(null);
+  const [analysisMode, setAnalysisMode] = useState<'dataset' | 'ai'>('ai');
   const [showOverlay, setShowOverlay] = useState(true);
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
   const [activeTab, setActiveTab] = useState('analyze');
+  const [currentFile, setCurrentFile] = useState<File | null>(null);
   const { toast } = useToast();
 
   const loadReferenceImages = useCallback(async () => {

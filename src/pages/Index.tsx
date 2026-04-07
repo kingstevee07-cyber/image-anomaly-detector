@@ -112,16 +112,18 @@ const Index = () => {
     }
   }, [toast, referenceImages, analysisMode]);
 
-  // Convert AnomalyResult regions to AnomalyRegion format
-  const heatmapRegions: AnomalyRegion[] = analysisResult?.anomalyRegions.map(r => ({
-    label: `Anomaly (${(r.score * 100).toFixed(0)}%)`,
-    x: r.x,
-    y: r.y,
-    width: r.width,
-    height: r.height,
-    severity: r.severity,
-    score: r.score
-  })) || [];
+  // Get regions from whichever analysis mode was used
+  const heatmapRegions: AnomalyRegion[] = analysisMode === 'ai' 
+    ? (aiResult?.anomaly_regions || [])
+    : (analysisResult?.anomalyRegions.map(r => ({
+        label: `Anomaly (${(r.score * 100).toFixed(0)}%)`,
+        x: r.x,
+        y: r.y,
+        width: r.width,
+        height: r.height,
+        severity: r.severity,
+        score: r.score
+      })) || []);
 
   return (
     <div className="min-h-screen bg-background">

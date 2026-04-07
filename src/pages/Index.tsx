@@ -317,7 +317,7 @@ const Index = () => {
                       loadingStatus={loadingStatus}
                       referenceCount={referenceImages.length}
                     />
-                </div>
+                  )}
                 </div>
               </div>
             </TabsContent>
